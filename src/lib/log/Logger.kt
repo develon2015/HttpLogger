@@ -1,7 +1,7 @@
 package lib.log
 
 class Logger(val name: String = "Logger") {
-	fun log(msg: String, title: String = "") {
+	fun d(msg: String, title: String = "") {
 		val trace: Array<StackTraceElement>?  = Thread.currentThread().getStackTrace()
 
 		if (trace == null || trace.size < 3) return println("Logger@${ name } ${ title } ->${ msg }")
