@@ -23,17 +23,21 @@ class HttpServer(val host: String = "0.0.0.0", val port: Int = 80, val baseDir: 
 				val ous = conn.getOutputStream()
 				val reader = BufferedReader(InputStreamReader(ins, Charset.forName("UTF-8")) )
 
-				fun handleConn() {
+				fun handleConn() : Boolean {
 					// HTTP protocol?
-					val line = reader.readLine()
-					if (line == null) {
-						log.d("$name: 客户端断开连接")
-						break
+					while (true) {
+						val line = reader.readLine()
+						if (line == null) {
+							log.d("$name: 客户端断开连接")
+							return false
+						}
+						log.d(line)
 					}
-					log.d(line)
+					return true
 				}
 
-				while (true) {
+				while (handleConn()) {
+					log.d("await handle...")
 				}
 
 				conn.close()
