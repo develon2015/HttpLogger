@@ -24,15 +24,39 @@ class HttpServer(val host: String = "0.0.0.0", val port: Int = 80, val baseDir: 
 				val reader = BufferedReader(InputStreamReader(ins, Charset.forName("UTF-8")) )
 
 				fun handleConn() : Boolean {
-					// HTTP protocol?
+
+					// first line
+					var line: String? = reader.readLine()
+
+					if (line == null) {
+						log.d("$name -> 连接被关闭")
+						return false
+					}
+
+					val regexRequest = """(GET|HEAD) ([^\s]*) HTTP/(\d\.\d)""".toRegex()
+					val matchResult = regexRequest.matchEntire(line)
+
+					if (matchResult == null) {
+						log.d(line, "$name: Bad request")
+						return false
+					}
+
+					// 合法的请求
+					val (method, uri, version) = matchResult.destructured
+
+					log.d("$method $uri HTTP/$version", "$name HTTP请求")
+
+					// Headers
 					while (true) {
-						val line = reader.readLine()
+						line = reader.readLine()
 						if (line == null) {
 							log.d("$name: 客户端断开连接")
 							return false
 						}
 						log.d(line)
 					}
+
+					log.d("$name 处理完成, 继续等待")
 					return true
 				}
 
