@@ -1,15 +1,16 @@
 .ONESHELL:
 SHELL := /bin/bash
-Target := bin/MainKt.class
+
+DIR := ./out/production/HttpLogger
+Target := $(DIR)/MainKt.class
 Proxy := makefile_proxy
 KC := kc
 JK := jk
 #CP := -cp bin -cp '*/*/ref/*.jar'
-CP := -cp bin
 
 
 .PHONY: all
-all: $(Proxy) | bin
+all: $(Proxy) | $(DIR)
 	@
 	echo 开始构建目标$(Target)
 	time make -f $<
@@ -20,20 +21,20 @@ $(Proxy): src
 	echo 查找源文件 $$codefs
 	echo 生成makefile代理文件$@,内容如下:
 	echo "$(Target): $$codefs" > $@
-	echo "	$(KC) $(CP) -d bin \$$^" >> $@
+	echo "	$(KC) -cp $(DIR) -d $(DIR) \$$^" >> $@
 	cat $@
 
-bin:
-	mkdir bin
+$(DIR):
+	mkdir -p $@
 
 .PHONY: run
 run:
-	$(JK) $(CP) MainKt
+	$(JK) -cp $(DIR) MainKt
 
 .PHONY:test 
 test:
-	$(JK) -cp bin TestKt
+	$(JK) -cp $(DIR) TestKt
 
 .PHONY: clean
 clean:
-	rm -rf bin/* $(Proxy)
+	rm -rf $(DIR)/* $(Proxy)
