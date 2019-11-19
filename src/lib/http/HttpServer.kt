@@ -13,11 +13,29 @@ class HttpServer(val host: String = "0.0.0.0", val port: Int = 80, val baseDir: 
 
 	data class Header(val name: String, val value: String)
 
-	val mime = mapOf("html" to "text/html",
-			"js" to "text/javascript",
-			"css" to "text/css",
-			"default" to "application/plain"
-			)
+	val mime = mapOf(
+		"html" to "text/html",
+		"js" to "text/javascript",
+		"css" to "text/css",
+        "xml" to "application/xml",
+
+		"zip" to "application/zip",
+		"tar" to "application/x-tar",
+		"rar" to "application/x-rar-compressed",
+		"pdf" to "application/pdf",
+
+		"webm" to "video/webm",
+		"mp4" to "video/mp4",
+
+		"mp3" to "audio/mp3",
+
+		"jpg" to "image/jpeg",
+		"jpeg" to "image/jpg",
+        "png" to "image/png",
+		"ico" to "image/ico",
+
+		"default" to "application/octet-stream"
+	)
 
 	fun response(ous: OutputStream, request: HttpRequest) {
 		
@@ -32,28 +50,48 @@ class HttpServer(val host: String = "0.0.0.0", val port: Int = 80, val baseDir: 
 
 		val file = File("$baseDir${ request.uri }")
 
-		log.d("file -> $file")
+		log.d("file: $file")
 
-		if (file.isDirectory()) return response(ous, request.let { HttpRequest(it.method, "${ it.uri }/index.html", it.version, it.headers) })
-		var length = 0
+		if (file.isDirectory) {
+			log.d("目录${ file }重定向至index.html")
+			return response(ous, request.let { HttpRequest(it.method, "${it.uri}/index.html", it.version, it.headers) })
+		}
+
+		if (!file.isFile) {
+			ous.write("""
+			   |HTTP/2.0 404 NOT FOUND
+			   |Content-Length: 0
+			   |
+			   |
+			   """.trimMargin().toByteArray()
+			)
+			ous.flush()
+            return
+		}
+
+		var length = file.length()
 
 		when (request.method) {
-			in listOf("HEAD", "GET") -> {
+			"HEAD", "GET" -> {
 				ous.write("""
 					|HTTP/2.0 200 OK
 					|Content-Type: ${ type }
 					|Content-Length: ${ length }
-
+					|
 					|
 					""".trimMargin().toByteArray()
 				)
+				if ("GET".equals(request.method)) {
+                    // send file
+					ous.write(file.readBytes())
+				}
 				ous.flush()
 			}
 		}
 	}
 
 	fun service() {
-		log.d("HttpServer监听于${ host} : ${ port }", "HttpServer")
+		log.d("HttpServer监听于${ host } : ${ port }", "HttpServer")
 		val sock = ServerSocket(port)
 
 		while (true) {
@@ -79,7 +117,7 @@ class HttpServer(val host: String = "0.0.0.0", val port: Int = 80, val baseDir: 
 					}
 
 					val regexRequest = """(GET|HEAD) ([^\s]*) HTTP/(\d\.\d)""".toRegex()
-					val matchResult = regexRequest.matchEntire(line)
+					var matchResult = regexRequest.matchEntire(line)
 
 					if (matchResult == null) {
 						log.d("Bad request: $line", name)
@@ -87,7 +125,8 @@ class HttpServer(val host: String = "0.0.0.0", val port: Int = 80, val baseDir: 
 					}
 
 					// 合法的请求
-					val (method, uri, version) = matchResult.destructured
+					var (method, uri, version) = matchResult.destructured
+                    uri = URLDecoder.decode(uri, "UTF-8")
 
 					log.d("HTTP请求: $method $uri HTTP/$version", name)
 
@@ -107,13 +146,13 @@ class HttpServer(val host: String = "0.0.0.0", val port: Int = 80, val baseDir: 
 						}
 
 						val regexHeader = """(.*):\s(.*)""".toRegex()
-						val matchResult = regexHeader.matchEntire(line)
+						matchResult = regexHeader.matchEntire(line)
 						if (matchResult == null) {
 							log.d("Bad header: $line", name)
 							continue
 						}
-						val (name, value) = matchResult.destructured
-						headers.add(Header(name, value))
+						val (key, value) = matchResult.destructured
+						headers.add(Header(key, value))
 					}
 
 					// response
