@@ -1,28 +1,22 @@
-.ONESHELL:
 SHELL := /bin/bash
 
 DIR := ./out/production/HttpLogger
 Target := $(DIR)/MainKt.class
-Proxy := makefile_proxy
-KC := kc
-JK := jk
-#CP := -cp bin -cp '*/*/ref/*.jar'
+Jar := ./http.jar
+KC := kotlinc
+JK := kotlin
 
+.PHONY: all jar
 
-.PHONY: all
-all: $(Proxy) | $(DIR)
-	@
-	echo 开始构建目标$(Target)
-	time make -f $<
+all: $(Target)
 
-$(Proxy): src
-	@
-	codefs=$$(echo $$(find src -regex '.*\.kt$$'))
-	echo 查找源文件 $$codefs
-	echo 生成makefile代理文件$@,内容如下:
-	echo "$(Target): $$codefs" > $@
-	echo "	$(KC) -cp $(DIR) -d $(DIR) \$$^" >> $@
-	cat $@
+$(Target): $(shell find src -name '*.kt') | $(DIR)
+	time $(KC) -cp $(DIR) -d $(DIR) $^
+
+jar: $(Jar)
+
+$(Jar): $(shell find src -name '*.kt')
+	time $(KC) -cp $(DIR) -d $@ $^
 
 $(DIR):
 	mkdir -p $@

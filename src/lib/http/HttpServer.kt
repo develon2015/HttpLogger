@@ -17,7 +17,7 @@ class HttpServer(val host: String = "0.0.0.0", val port: Int = 80, val baseDir: 
 		"html" to "text/html",
 		"js" to "text/javascript",
 		"css" to "text/css",
-        "xml" to "application/xml",
+		"xml" to "application/xml",
 
 		"zip" to "application/zip",
 		"tar" to "application/x-tar",
@@ -31,7 +31,7 @@ class HttpServer(val host: String = "0.0.0.0", val port: Int = 80, val baseDir: 
 
 		"jpg" to "image/jpeg",
 		"jpeg" to "image/jpg",
-        "png" to "image/png",
+		"png" to "image/png",
 		"ico" to "image/ico",
 
 		"default" to "application/octet-stream"
@@ -66,7 +66,7 @@ class HttpServer(val host: String = "0.0.0.0", val port: Int = 80, val baseDir: 
 			   """.trimMargin().toByteArray()
 			)
 			ous.flush()
-            return
+			return
 		}
 
 		var length = file.length()
@@ -82,7 +82,7 @@ class HttpServer(val host: String = "0.0.0.0", val port: Int = 80, val baseDir: 
 					""".trimMargin().toByteArray()
 				)
 				if ("GET".equals(request.method)) {
-                    // send file
+					// send file
 					ous.write(file.readBytes())
 				}
 				ous.flush()
@@ -126,7 +126,7 @@ class HttpServer(val host: String = "0.0.0.0", val port: Int = 80, val baseDir: 
 
 					// 合法的请求
 					var (method, uri, version) = matchResult.destructured
-                    uri = URLDecoder.decode(uri, "UTF-8")
+					uri = URLDecoder.decode(uri, "UTF-8")
 
 					log.d("HTTP请求: $method $uri HTTP/$version", name)
 
