@@ -7,17 +7,18 @@ import java.util.*
 import java.io.*
 import java.nio.charset.*
 
-class HttpServer(val host: String = "0.0.0.0", val port: Int = 80, val baseDir: String = ".") {
+class HttpServer(private val host: String = "0.0.0.0", private val port: Int = 80, private val baseDir: String = ".") {
 
-	data class HttpRequest(val method: String, val uri: String, val version: String, val headers: List<Header>)
+	data class HttpRequest(val method: String, var uri: String, val version: String, val headers: List<Header>)
 
 	data class Header(val name: String, val value: String)
 
-	val mime = mapOf(
+	private val mime = mapOf(
 		"html" to "text/html",
 		"js" to "text/javascript",
 		"css" to "text/css",
 		"xml" to "application/xml",
+		"json" to "application/json",
 
 		"zip" to "application/zip",
 		"tar" to "application/x-tar",
@@ -37,15 +38,89 @@ class HttpServer(val host: String = "0.0.0.0", val port: Int = 80, val baseDir: 
 		"default" to "application/octet-stream"
 	)
 
-	fun response(ous: OutputStream, request: HttpRequest) {
-		
-		var type = mime.get("default")!! // 默认资源类型
+    private val extra = """
+		|Server: FileServer
+		|Access-Control-Allow-Origin: *
+	""".trimIndent()
+	/**
+	 * API: /ls?{ dir: /?path/to/dir }
+	 */
+	private fun ls(ous: OutputStream, request: HttpRequest) {
+		val uri = request.uri.let {
+			it.substring(4 until it.length)
+		}
+
+		val dir = File(baseDir, uri)//.normalize()
+		log.d("ls: ${dir.absolutePath}")
+		if (!dir.isDirectory) {
+			// advice redirect
+			ous.write("""
+				|HTTP/2.0 404 NOT DIRECTORY
+				|Content-Length: 0
+				$extra
+				|
+				|
+				""".trimMargin().toByteArray()
+			)
+			ous.flush()
+			return
+		}
+
+		val type = mime["json"] ?: error("Unknown MIME Type")
+		var dirs = ""
+		var files = ""
+
+		dir.listFiles() ?.let {
+			it.forEach { f ->
+				if (f.isDirectory)
+					dirs += """${if (dirs == "") "" else ", "}"${URLEncoder.encode(f.name, "UTF-8")}""""
+				else
+					files += """${if (files == "") "" else ", "}"${URLEncoder.encode(f.name, "UTF-8")}""""
+			}
+		}
+
+		val json = """
+			|{
+			|	"pwd": "${URLEncoder.encode(uri, "UTF-8")}",
+			|	"dirs": [${dirs}],
+			|	"files": [${files}]
+			|}
+		""".trimMargin()
+
+		val jsonBytes =  json.toByteArray()
+		val length = jsonBytes.size
+
+		ous.write("""
+			|HTTP/2.0 200 OK
+			|Content-Type: $type
+			|Content-Length: $length
+			$extra
+			|
+			|
+			""".trimMargin().toByteArray()
+		)
+		// send json data
+		ous.write(jsonBytes)
+		ous.flush()
+	}
+
+	private fun response(ous: OutputStream, request: HttpRequest) {
+        // API holder
+		run {
+			request.uri.let {
+				if (it.length > 3 && it.substring(0..3) == "/ls?")
+					return ls(ous, request)
+			}
+		}
+
+		var type = mime["default"] ?: error("Unknown MIME Type") // 默认资源类型
 
 		val regexURI = """.*/[^/]+\.(.+)""".toRegex()
 
+		// 通过正则匹配文件后缀名, 并映射type
 		val matchResult = regexURI.matchEntire(request.uri)
 		matchResult ?.let {
-			it.groups.get(1) ?.value.let { mime.get(it) ?.let { type = it } }
+			it.groups[1] ?.value.let { mimeKey -> mime[mimeKey] ?.let { mime -> type = mime } }
 		}
 
 		val file = File("$baseDir${ request.uri }")
@@ -69,21 +144,36 @@ class HttpServer(val host: String = "0.0.0.0", val port: Int = 80, val baseDir: 
 			return
 		}
 
-		var length = file.length()
+		val length = file.length()
 
 		when (request.method) {
 			"HEAD", "GET" -> {
 				ous.write("""
 					|HTTP/2.0 200 OK
-					|Content-Type: ${ type }
-					|Content-Length: ${ length }
+					|Content-Type: $type
+					|Content-Length: $length
 					|
 					|
 					""".trimMargin().toByteArray()
 				)
-				if ("GET".equals(request.method)) {
+				if ("GET" == request.method) {
 					// send file
-					ous.write(file.readBytes())
+					if (file.length() < 2 * 1024) {
+                        log.d(msg = "一次性发送")
+						ous.write(file.readBytes())
+					} else {
+						log.d(msg = "文件太大，分段发送")
+						val fr = BufferedInputStream(FileInputStream(file), 2 * 1024 * 1024)
+                        try {
+							val buf = ByteArray(1024 * 1024)
+							while (true) {
+								val nb = fr.read(buf)
+								ous.write(buf, 0, nb)
+							}
+						} catch (e: Exception) {
+							fr.close()
+						}
+					}
 				}
 				ous.flush()
 			}
@@ -91,7 +181,7 @@ class HttpServer(val host: String = "0.0.0.0", val port: Int = 80, val baseDir: 
 	}
 
 	fun service() {
-		log.d("HttpServer监听于${ host } : ${ port }", "HttpServer")
+		log.d("HttpServer监听于$host : $port", "HttpServer")
 		val sock = ServerSocket(port)
 
 		while (true) {
@@ -100,7 +190,7 @@ class HttpServer(val host: String = "0.0.0.0", val port: Int = 80, val baseDir: 
 			Thread {
 				val name = cth().name
 
-				log.d("${ (conn.remoteSocketAddress as InetSocketAddress).let{ "${ it.address.hostAddress }:${ it.port }" } }", "$name: 新的客户端连接")
+				log.d((conn.remoteSocketAddress as InetSocketAddress).let{ "${ it.address.hostAddress }:${ it.port }" }, "$name: 新的客户端连接")
 
 				val ins = conn.getInputStream()
 				val ous = conn.getOutputStream()
@@ -140,7 +230,7 @@ class HttpServer(val host: String = "0.0.0.0", val port: Int = 80, val baseDir: 
 							return false
 						}
 
-						if ("".equals(line.trim()) ) {
+						if ("" == line.trim()) {
 							log.d("Headers: $headers", name)
 							break
 						}
@@ -159,22 +249,23 @@ class HttpServer(val host: String = "0.0.0.0", val port: Int = 80, val baseDir: 
 					response(ous, HttpRequest(method, uri, version, headers))
 
 					val headerConnection = try {
-						headers.filter{ "Connection".equals(it.name) }.get(0).value
+						headers.filter{ "Connection" == it.name }[0].value
 					} catch(e: Exception) {
 						"unknown"
 					}
-					when (headerConnection) {
+
+					return when (headerConnection) {
 						"Close", "close" -> {
 							log.d("处理完成, 正常断开", name)
-							return false
+							false
 						}
 						"Keep-Alive" -> {
 							log.d("处理完成, Keep-Alive", name)
-							return true
+							true
 						}
 						else -> {
 							log.d("处理完成, 继续等待", name)
-							return true
+							true
 						}
 					}
 				}

@@ -1,0 +1,13 @@
+if [ "init" == "$1" ]; then
+	echo \
+'{
+	"address": "0.0.0.0",
+	"port": 80,
+	"dir": "."
+}' > config.json
+	cp /usr/local/bin/ls.html .
+	exit $?
+fi
+
+kotlin -cp $(dirname $0)/http.jar MainKt
+
