@@ -60,6 +60,7 @@ class HttpServer(private val host: String = "0.0.0.0", private val port: Int = 8
 				$extra
 				|
 				|
+				|
 				""".trimMargin().toByteArray()
 			)
 			ous.flush()
@@ -136,6 +137,7 @@ class HttpServer(private val host: String = "0.0.0.0", private val port: Int = 8
 			ous.write("""
 			   |HTTP/2.0 404 NOT FOUND
 			   |Content-Length: 0
+			   |
 			   |
 			   |
 			   """.trimMargin().toByteArray()

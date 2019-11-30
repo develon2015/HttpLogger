@@ -74,7 +74,7 @@
     function ls(path) {
         var xhr = new XMLHttpRequest();
         console.log(`${xhr.readyState} -> UNSET 对象创建完成`);
-        xhr.open(method = "GET", url = `http://192.168.0.5/ls?${path}`);
+        xhr.open(method = "GET", url = `/ls?${path}`);
         xhr.timeout = 2000
         xhr.ontimeout = event => {
             console.log("timeout")
