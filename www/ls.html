@@ -28,7 +28,12 @@
 
         .list {
             background-color: pink;
+	    padding: 6px;
         }
+
+	a {
+	    text-decoration: none;
+	}
 
         a.dir {
             color: white;
@@ -40,7 +45,7 @@
     </style>
 </head>
 <div class="title">
-    <span>文件浏览器</span><span id="pwd">/</span>
+    <span>文件浏览器</span><span id="pwd"></span>
 </div>
 <div class="list">
     <table id="ls">
@@ -56,15 +61,20 @@
     function updateList(target) {
         const r = JSON.parse(target.responseText)
         const pwd = decodeURIComponent(r.pwd)
-        const parent = pwd.match(/(.*\/)/)[1]
-        console.log(`parent -> ${parent}`)
+
+        let parent = ""
+        const mr = pwd.match(/(.*)\//)
+        if (mr != null) { parent = mr[1] } else { parent = "/" }
+
+        // console.log(`pwd -> ${pwd}`)
+        // console.log(`parent -> ${parent}`)
+
         const spanPwd = document.querySelector("span#pwd")
         spanPwd.innerText = decodeURIComponent(handleName(pwd))
         const tableLs = document.querySelector("table#ls")
-        tableLs.innerHTML = `<tr><td><a href="javascript: ls('${decodeURI(parent)}')">..</a></td></tr>`;
+        tableLs.innerHTML = `<tr><td><a href="javascript: ls('${decodeURI(parent)}')">返回上一级目录</a></td></tr>`;
         for (let i = 0; i < r.dirs.length; i ++ ) {
-        tableLs.innerHTML +=
-            `<tr><td><a class="dir" href="javascript: ls('${r.pwd}${r.dirs[i]}')">${handleName(r.dirs[i])}</a></td></tr>`;
+	    tableLs.innerHTML += `<tr><td><a class="dir" href="javascript: ls('${r.pwd}/${r.dirs[i]}')">${handleName(r.dirs[i])}</a></td></tr>`;
         }
         for (let i = 0; i < r.files.length; i ++ ) {
             tableLs.innerHTML += `<tr><td><a class="file" href="${r.pwd}/${r.files[i]}">${handleName(r.files[i])}</a></td></tr>`;
@@ -102,6 +112,6 @@
         xhr.send();
     }
 
-    ls("/");
+    ls("");
 </script>
 </html>
